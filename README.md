@@ -436,3 +436,9 @@ docker compose logs -f caddy   # doit réémettre immédiatement
 | `000` depuis le LAN | la surcouche de test est active (écoute sur `127.0.0.1`) |
 | « non sécurisé » sur un sous-domaine | cache navigateur, §5.4 |
 | « non sécurisé » sur l'apex | normal si le wildcard est seul, §5.2 |
+
+---
+
+## Licence
+
+MIT — voir [LICENSE](LICENSE).
