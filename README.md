@@ -461,9 +461,47 @@ Dans le `Caddyfile`, à l'intérieur du bloc `{$SITE_ADDRESSES}` :
 	}
 ```
 
-Remplacer `192.168.1.50` par l'IP locale de la machine Plex. Si Plex tourne dans
-Docker **sur le même hôte que certiac** et partage le réseau `proxy`, viser
-plutôt le nom du service : `reverse_proxy plex:32400`.
+L'adresse à viser dépend de la façon dont Plex est lancé. **C'est le point qui
+fait perdre le plus de temps.**
+
+| Situation | Cible à écrire |
+|---|---|
+| Plex en `network_mode: host`, **même machine** que certiac | `host.docker.internal:32400` |
+| Plex sur une **autre machine** du réseau | `192.168.1.50:32400` (son IP locale) |
+| Plex en réseau bridge, **rattaché au réseau `proxy`** | `plex:32400` (nom du service) |
+
+Le premier cas est de loin le plus courant : les images Plex recommandent
+`network_mode: host` pour la découverte DLNA et les clients du réseau local.
+Conséquence, **Plex n'est pas sur le réseau `proxy`** et son nom de service ne
+résout pas — viser `plex:32400` échouera avec `dial tcp: no such host`.
+
+Le `docker-compose.yml` déclare pour cela :
+
+```yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+```
+
+Ce nom existe d'office sur Docker Desktop (macOS, Windows) mais **pas sous
+Linux**, où cette ligne le crée. Sans elle, un conteneur ne peut pas nommer son
+hôte.
+
+Troisième cas, si Plex tourne bien en bridge, il faut le rattacher au réseau :
+
+```yaml
+  plex:
+    image: plexinc/pms-docker
+    networks: [proxy]      # sans ça, Caddy ne le voit pas
+```
+
+Vérifier la connectivité avant de chercher ailleurs :
+
+```bash
+docker compose exec caddy wget -qO- --timeout=5 http://host.docker.internal:32400/identity
+```
+
+Une réponse XML contenant `machineIdentifier` = le chemin réseau est bon, et un
+éventuel problème restant est côté réglages Plex (§7.2).
 
 Caddy v2 relaie les WebSockets de façon transparente — aucune directive à
 ajouter, contrairement à Caddy v1 qui demandait `websocket`. Il ne bufferise pas

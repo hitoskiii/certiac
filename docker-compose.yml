@@ -20,6 +20,12 @@ services:
       - caddy_data:/data      # CRITIQUE : certificats + clé de compte ACME
       - caddy_config:/config
       - ./logs:/var/log/caddy
+    # Rend l'hôte joignable depuis le conteneur sous le nom
+    # "host.docker.internal", y compris sous Linux où il n'existe pas d'office.
+    # Indispensable pour viser un service qui tourne en network_mode: host
+    # sur la même machine (Plex, par exemple). Voir README §7.1.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - proxy
 
