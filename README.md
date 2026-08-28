@@ -439,6 +439,90 @@ docker compose logs -f caddy   # doit réémettre immédiatement
 
 ---
 
+## 7. Cas d'usage : Plex et demandes de films
+
+Exposer un serveur Plex et une application de demandes (Overseerr, Jellyseerr,
+Ombi) sur des sous-domaines en HTTPS. Le certificat wildcard les couvre tous les
+deux sans émission supplémentaire.
+
+### 7.1 Routes
+
+Dans le `Caddyfile`, à l'intérieur du bloc `{$SITE_ADDRESSES}` :
+
+```
+	@plex host plex.{$DOMAIN}
+	handle @plex {
+		reverse_proxy 192.168.1.50:32400
+	}
+
+	@requests host requests.{$DOMAIN}
+	handle @requests {
+		reverse_proxy 192.168.1.50:5055
+	}
+```
+
+Remplacer `192.168.1.50` par l'IP locale de la machine Plex. Si Plex tourne dans
+Docker **sur le même hôte que certiac** et partage le réseau `proxy`, viser
+plutôt le nom du service : `reverse_proxy plex:32400`.
+
+Caddy v2 relaie les WebSockets de façon transparente — aucune directive à
+ajouter, contrairement à Caddy v1 qui demandait `websocket`. Il ne bufferise pas
+non plus les réponses par défaut, ce qui est ce qu'on veut pour du streaming.
+
+### 7.2 Réglages à faire dans Plex
+
+Le proxy seul ne suffit pas : Plex doit être prévenu qu'on l'atteint par un
+autre nom que le sien. Dans **Paramètres → Réseau** (afficher les réglages
+avancés) :
+
+| Réglage | Valeur |
+|---|---|
+| **Custom server access URLs** | `https://plex.mondomaine.fr:443` |
+| **Secure connections** | `Preferred` (et non `Required`) |
+| **LAN Networks** | ajouter le sous-réseau local, ex. `192.168.1.0/24` |
+
+Pourquoi `Preferred` : par défaut Plex veut terminer lui-même le TLS avec son
+certificat `*.plex.direct`. Derrière un proxy qui a déjà fait le travail, le
+laisser sur `Required` provoque des erreurs de connexion.
+
+Redémarrer le serveur Plex après ces changements.
+
+> Les clients Plex (TV, mobile) privilégient souvent la découverte directe via
+> les serveurs de Plex plutôt que l'URL personnalisée. Le proxy sert surtout au
+> **client web** et aux accès depuis l'extérieur. Ce n'est pas un défaut de
+> configuration.
+
+### 7.3 Réglages côté application de demandes
+
+Overseerr et Jellyseerr écoutent sur **5055**. Dans leurs paramètres généraux,
+activer **« Enable proxy support »** (ou équivalent) pour qu'ils lisent
+l'en-tête `X-Forwarded-For` que Caddy envoie — sans quoi tous les utilisateurs
+apparaîtront avec l'IP du proxy, et les liens générés pointeront vers la
+mauvaise adresse.
+
+### 7.4 Ce qu'il ne faut PAS exposer
+
+Overseerr et Jellyseerr ont une authentification et sont conçus pour être
+ouverts à des utilisateurs. Ce n'est **pas** le cas des applications qui les
+alimentent — Radarr, Sonarr, Prowlarr, qSonarr, le client de téléchargement.
+Leur authentification est faible ou désactivée par défaut, et elles donnent un
+accès direct au système de fichiers.
+
+Ne créer aucune route vers elles. Le `handle { abort }` en fin de bloc garantit
+qu'un sous-domaine non déclaré ne répond pas — mais la vraie protection, c'est
+de ne pas écrire la route.
+
+### 7.5 Récapitulatif pour la machine Plex
+
+1. Docker installé sur la machine (§2.1)
+2. Un domaine avec accès API — DuckDNS suffit et est gratuit (§2.2)
+3. Valider en staging sans ouvrir de port (§2.3)
+4. Redirection `443 -> <ip-locale>:HTTPS_PORT` sur le routeur (§2.4)
+5. **Réservation DHCP** pour la machine Plex (§2.5) — sinon l'accès tombera
+6. Routes Plex et demandes (§7.1), puis réglages internes (§7.2, §7.3)
+
+---
+
 ## Licence
 
 MIT — voir [LICENSE](LICENSE).

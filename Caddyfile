@@ -61,6 +61,20 @@
 	# 	reverse_proxy app:3000
 	# }
 
+	# --- Modèle Plex (backend hors Docker, sur le LAN) ---
+	# Caddy v2 relaie les WebSockets nativement : rien à déclarer.
+	# Voir README §7 pour les réglages à faire DANS Plex.
+	# @plex host plex.{$DOMAIN}
+	# handle @plex {
+	# 	reverse_proxy 192.168.1.50:32400
+	# }
+
+	# --- Modèle Overseerr / Jellyseerr (demandes de films) ---
+	# @requests host requests.{$DOMAIN}
+	# handle @requests {
+	# 	reverse_proxy 192.168.1.50:5055
+	# }
+
 	# Un sous-domaine non déclaré ne doit rien révéler : on coupe.
 	handle {
 		abort
