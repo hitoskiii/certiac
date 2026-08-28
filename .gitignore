@@ -1,0 +1,9 @@
+# Secrets — NE JAMAIS COMMITTER
+.env
+
+# Données d'exécution
+logs/
+*.tar.gz
+
+# macOS
+.DS_Store

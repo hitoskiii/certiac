@@ -1,0 +1,13 @@
+# Fragment DNS dynamique — Cloudflare.
+# Ici le wildcard DNS n'existe pas d'office : on crée bien un record "*".
+dynamic_dns {
+	provider cloudflare {$CLOUDFLARE_API_TOKEN}
+	domains {
+		{$DOMAIN} @ *
+	}
+	ip_source simple_http https://icanhazip.com
+	ip_source simple_http https://api.ipify.org
+	check_interval 5m
+	ttl 5m
+	versions ipv4
+}

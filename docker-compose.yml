@@ -1,0 +1,39 @@
+services:
+  caddy:
+    build: .
+    image: certiac-caddy
+    restart: unless-stopped
+    # Home Assistant occupe déjà 443 sur ce réseau : certiac vit à côté, sur
+    # un port dédié. Le port 80 n'est PAS exposé — on ne s'en sert pas (le
+    # challenge est en DNS-01) et une redirection HTTP->HTTPS pointerait vers
+    # le port standard, donc vers HA. Mieux vaut ne pas l'ouvrir.
+    ports:
+      - "${HTTPS_PORT:-8443}:443"
+      - "${HTTPS_PORT:-8443}:443/udp"   # HTTP/3
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Les deux fragments du provider choisi dans .env, montés à des chemins
+      # fixes. Changer d'hébergeur DNS = changer DNS_PROVIDER, pas de rebuild.
+      - ./providers/${DNS_PROVIDER:?DNS_PROVIDER manquant dans .env}.tls.caddyfile:/etc/caddy/dns-tls.caddyfile:ro
+      - ./providers/${DNS_PROVIDER}.ddns.caddyfile:/etc/caddy/dns-ddns.caddyfile:ro
+      - caddy_data:/data      # CRITIQUE : certificats + clé de compte ACME
+      - caddy_config:/config
+      - ./logs:/var/log/caddy
+    networks:
+      - proxy
+
+  # Service de test — supprimer une fois la chaîne validée.
+  whoami:
+    image: traefik/whoami
+    restart: unless-stopped
+    networks:
+      - proxy
+
+volumes:
+  caddy_data:     # ne jamais supprimer à la légère : réémission + rate limit
+  caddy_config:
+
+networks:
+  proxy:
+    name: proxy

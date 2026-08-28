@@ -1,0 +1,68 @@
+{
+	# ---- ACME : génération + rotation automatiques -------------------------
+	# Caddy demande le certificat au démarrage, le stocke dans /data, et le
+	# renouvelle seul à ~2/3 de sa durée de vie. Aucun cron, aucun reload.
+	email {$ACME_EMAIL}
+
+	# Autorité ACME. Par défaut la prod Let's Encrypt ; docker-compose.test.yml
+	# bascule sur le staging pour les essais.
+	acme_ca {$ACME_CA:https://acme-v02.api.letsencrypt.org/directory}
+
+	# ---- DNS dynamique -----------------------------------------------------
+	# Bind-mount de providers/${DNS_PROVIDER}.ddns.caddyfile.
+	import /etc/caddy/dns-ddns.caddyfile
+}
+
+# Domaines servis, définis par SITE_ADDRESSES dans .env.
+#
+# ATTENTION DuckDNS : ne mettre QUE le wildcard. DuckDNS ne stocke qu'un seul
+# enregistrement TXT par domaine, or l'apex et le wildcard ont tous deux besoin
+# de _acme-challenge.<domaine> — ils s'écrasent mutuellement et l'apex ne
+# s'obtient jamais. Chez Cloudflare/OVH/Gandi (TXT multiples) on peut ajouter
+# l'apex sans problème.
+{$SITE_ADDRESSES} {
+	tls {
+		# Bind-mount de providers/${DNS_PROVIDER}.tls.caddyfile : provider DNS,
+		# résolveurs et délais de propagation.
+		import /etc/caddy/dns-tls.caddyfile
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Page témoin : sert à vérifier que TLS répond.
+	@home host home.{$DOMAIN}
+	handle @home {
+		respond "certiac: reverse proxy en ligne" 200
+	}
+
+	# --- Service d'exemple, à supprimer une fois la chaîne validée ---
+	@whoami host whoami.{$DOMAIN}
+	handle @whoami {
+		reverse_proxy whoami:80
+	}
+
+	# --- Modèle pour un service Docker ---
+	# @app host app.{$DOMAIN}
+	# handle @app {
+	# 	reverse_proxy app:3000
+	# }
+
+	# Un sous-domaine non déclaré ne doit rien révéler : on coupe.
+	handle {
+		abort
+	}
+}

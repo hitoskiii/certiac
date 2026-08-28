@@ -1,0 +1,21 @@
+# Surcouche de TEST — à empiler sur docker-compose.yml :
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+#
+# Deux différences avec la prod :
+#  1. Ports décalés (8080/8443) : le challenge DNS-01 n'a besoin d'AUCUN port
+#     entrant, donc on valide toute la chaîne sans couper now-api-php ni
+#     toucher à la box.
+#  2. Autorité ACME de staging : quota quasi illimité. Les certificats émis
+#     seront rejetés par le navigateur — c'est le comportement attendu.
+services:
+  caddy:
+    ports: !override
+      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8443:443"
+    environment:
+      ACME_CA: https://acme-staging-v02.api.letsencrypt.org/directory
+    volumes:
+      - caddy_data_test:/data      # volume séparé : ne pollue pas la prod
+
+volumes:
+  caddy_data_test:

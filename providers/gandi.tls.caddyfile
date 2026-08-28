@@ -1,0 +1,3 @@
+# Fragment TLS — Gandi LiveDNS.
+dns gandi {$GANDI_API_TOKEN}
+resolvers 1.1.1.1 8.8.8.8

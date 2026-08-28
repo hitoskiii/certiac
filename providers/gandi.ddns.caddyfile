@@ -1,0 +1,12 @@
+# Fragment DNS dynamique — Gandi LiveDNS.
+dynamic_dns {
+	provider gandi {$GANDI_API_TOKEN}
+	domains {
+		{$DOMAIN} @ *
+	}
+	ip_source simple_http https://icanhazip.com
+	ip_source simple_http https://api.ipify.org
+	check_interval 5m
+	ttl 5m
+	versions ipv4
+}

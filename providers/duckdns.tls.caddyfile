@@ -1,0 +1,10 @@
+# Fragment TLS — DuckDNS. Importé DANS le bloc tls du site.
+dns duckdns {$DUCKDNS_API_TOKEN}
+
+# Sans ça, Caddy interroge directement les serveurs autoritaires de DuckDNS
+# pour vérifier la propagation du TXT — et ils ne répondent pas de façon
+# fiable en TCP/53 depuis un conteneur (i/o timeout). On passe par des
+# résolveurs publics à la place.
+resolvers 1.1.1.1 8.8.8.8
+propagation_delay 20s
+propagation_timeout 5m

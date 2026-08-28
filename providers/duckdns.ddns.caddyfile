@@ -1,0 +1,14 @@
+# Fragment DNS dynamique — DuckDNS. Importé dans le bloc global options.
+# La zone est le domaine ENTIER, et DuckDNS résout déjà *.<nom>.duckdns.org
+# vers la même IP : on ne déclare donc PAS de record "*".
+dynamic_dns {
+	provider duckdns {$DUCKDNS_API_TOKEN}
+	domains {
+		{$DOMAIN} @
+	}
+	ip_source simple_http https://icanhazip.com
+	ip_source simple_http https://api.ipify.org
+	check_interval 5m
+	ttl 5m
+	versions ipv4
+}

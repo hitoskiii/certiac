@@ -1,0 +1,17 @@
+# Fragment DNS dynamique — OVH.
+dynamic_dns {
+	provider ovh {
+		endpoint {$OVH_ENDPOINT}
+		application_key {$OVH_APPLICATION_KEY}
+		application_secret {$OVH_APPLICATION_SECRET}
+		consumer_key {$OVH_CONSUMER_KEY}
+	}
+	domains {
+		{$DOMAIN} @ *
+	}
+	ip_source simple_http https://icanhazip.com
+	ip_source simple_http https://api.ipify.org
+	check_interval 5m
+	ttl 5m
+	versions ipv4
+}
