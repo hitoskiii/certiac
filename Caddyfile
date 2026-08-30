@@ -43,10 +43,22 @@
 		-Server
 	}
 
+	# --- Apex : l'application de demandes (Overseerr / Jellyseerr) ----------
+	# Sur DuckDNS, servir l'apex SEUL ne pose aucun problème : un seul
+	# certificat, donc un seul _acme-challenge. C'est la cohabitation
+	# apex + wildcard qui est impossible (voir README §5.1).
+	# Adresse du backend réglable par SEERR_UPSTREAM dans .env.
+	@seerr host {$DOMAIN}
+	handle @seerr {
+		reverse_proxy {$SEERR_UPSTREAM:host.docker.internal:5055}
+	}
+
 	# Page témoin : sert à vérifier que TLS répond.
+	# Fichiers statiques depuis ./site (monté en lecture seule).
 	@home host home.{$DOMAIN}
 	handle @home {
-		respond "certiac: reverse proxy en ligne" 200
+		root * /srv/site
+		file_server
 	}
 
 	# --- Service d'exemple, à supprimer une fois la chaîne validée ---

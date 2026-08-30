@@ -29,6 +29,7 @@ providers/<nom>.tls.caddyfile     provider DNS + résolveurs  (bloc tls du site)
 providers/<nom>.ddns.caddyfile    bloc dynamic_dns           (global options)
 docker-compose.yml                la stack de production
 docker-compose.test.yml           surcouche de test (loopback + ACME staging)
+site/index.html                   page témoin servie en HTTPS
 scripts/preflight.sh              contrôle .env avant démarrage
 scripts/verify.sh                 vérifie la chaîne de bout en bout
 .env                              toute la configuration
@@ -354,6 +355,9 @@ SITE_ADDRESSES=*.monserveur.duckdns.org
 Et servir la page d'accueil sur `home.<domaine>`. Cette limite n'existe pas chez
 Cloudflare, OVH ou Gandi.
 
+> À l'inverse, servir **l'apex seul** (sans wildcard) fonctionne très bien sur
+> DuckDNS : un seul certificat, donc un seul TXT. Voir §7.4.
+
 ### 5.2 Un wildcard ne couvre pas l'apex
 
 `*.exemple.org` couvre `truc.exemple.org` mais **pas** `exemple.org`. Règle du
@@ -554,7 +558,53 @@ l'en-tête `X-Forwarded-For` que Caddy envoie — sans quoi tous les utilisateur
 apparaîtront avec l'IP du proxy, et les liens générés pointeront vers la
 mauvaise adresse.
 
-### 7.4 Ce qu'il ne faut PAS exposer
+### 7.4 Servir une seule application sur l'apex
+
+Si la machine n'expose **qu'un** service — typiquement l'application de demandes
+seule, sans Plex — le plus agréable est de le servir sur le domaine nu, sans
+sous-domaine :
+
+```
+https://sonnom.duckdns.org
+```
+
+Contrairement à ce que laisse craindre le §5.1, **c'est parfaitement possible sur
+DuckDNS**. La limite du TXT unique ne se déclenche que si l'apex *et* le wildcard
+sont demandés ensemble : deux certificats réclament alors le même
+`_acme-challenge`. Un apex seul, c'est un seul certificat, donc un seul TXT.
+
+Dans `.env`, retirer l'astérisque :
+
+```
+DOMAIN=sonnom.duckdns.org
+SITE_ADDRESSES=sonnom.duckdns.org      # pas de wildcard
+SEERR_UPSTREAM=host.docker.internal:5011
+```
+
+Le `Caddyfile` route déjà l'apex vers `{$SEERR_UPSTREAM}`.
+
+**Le port à indiquer est celui publié sur l'hôte, pas celui du conteneur.**
+C'est l'erreur la plus fréquente. `docker ps` donne les deux :
+
+```
+seerr   seerr/seerr:latest   0.0.0.0:5011->5055/tcp
+                                      ▲        ▲
+                              hôte ───┘        └─── interne au conteneur
+```
+
+Ici il faut **5011**. Vérifier avant de chercher ailleurs :
+
+```bash
+docker compose exec caddy wget -qO- --timeout=5 http://host.docker.internal:5011/ | head -c 200
+```
+
+Du HTML en retour = le chemin réseau est bon.
+
+Le compromis : en choisissant l'apex, on renonce aux sous-domaines, et
+inversement. Sur un vrai domaine (Cloudflare, OVH, Gandi), les deux cohabitent
+sans problème.
+
+### 7.5 Ce qu'il ne faut PAS exposer
 
 Overseerr et Jellyseerr ont une authentification et sont conçus pour être
 ouverts à des utilisateurs. Ce n'est **pas** le cas des applications qui les
@@ -566,7 +616,7 @@ Ne créer aucune route vers elles. Le `handle { abort }` en fin de bloc garantit
 qu'un sous-domaine non déclaré ne répond pas — mais la vraie protection, c'est
 de ne pas écrire la route.
 
-### 7.5 Récapitulatif pour la machine Plex
+### 7.6 Récapitulatif pour la machine Plex
 
 1. Docker installé sur la machine (§2.1)
 2. Un domaine avec accès API — DuckDNS suffit et est gratuit (§2.2)

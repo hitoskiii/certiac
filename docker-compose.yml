@@ -17,6 +17,7 @@ services:
       # fixes. Changer d'hébergeur DNS = changer DNS_PROVIDER, pas de rebuild.
       - ./providers/${DNS_PROVIDER:?DNS_PROVIDER manquant dans .env}.tls.caddyfile:/etc/caddy/dns-tls.caddyfile:ro
       - ./providers/${DNS_PROVIDER}.ddns.caddyfile:/etc/caddy/dns-ddns.caddyfile:ro
+      - ./site:/srv/site:ro   # page témoin HTTPS servie sur home.<domaine>
       - caddy_data:/data      # CRITIQUE : certificats + clé de compte ACME
       - caddy_config:/config
       - ./logs:/var/log/caddy
