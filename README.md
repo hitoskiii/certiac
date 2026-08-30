@@ -558,33 +558,25 @@ l'en-tête `X-Forwarded-For` que Caddy envoie — sans quoi tous les utilisateur
 apparaîtront avec l'IP du proxy, et les liens générés pointeront vers la
 mauvaise adresse.
 
-### 7.4 Servir une seule application sur l'apex
+### 7.4 L'application de demandes
 
-Si la machine n'expose **qu'un** service — typiquement l'application de demandes
-seule, sans Plex — le plus agréable est de le servir sur le domaine nu, sans
-sous-domaine :
-
-```
-https://sonnom.duckdns.org
-```
-
-Contrairement à ce que laisse craindre le §5.1, **c'est parfaitement possible sur
-DuckDNS**. La limite du TXT unique ne se déclenche que si l'apex *et* le wildcard
-sont demandés ensemble : deux certificats réclament alors le même
-`_acme-challenge`. Un apex seul, c'est un seul certificat, donc un seul TXT.
-
-Dans `.env`, retirer l'astérisque :
+Elle est servie sur un **sous-domaine**, donc couverte par le certificat
+wildcard — aucune émission supplémentaire :
 
 ```
-DOMAIN=sonnom.duckdns.org
-SITE_ADDRESSES=sonnom.duckdns.org      # pas de wildcard
-SEERR_UPSTREAM=host.docker.internal:5011
+https://seerr.sondomaine.fr
 ```
 
-Le `Caddyfile` route déjà l'apex vers `{$SEERR_UPSTREAM}`.
+Deux variables la pilotent, sans toucher au `Caddyfile` :
+
+```
+SEERR_SUBDOMAIN=seerr                      # le label ; "requests" marche aussi
+SEERR_UPSTREAM=host.docker.internal:5011   # le backend
+```
 
 **Le port à indiquer est celui publié sur l'hôte, pas celui du conteneur.**
-C'est l'erreur la plus fréquente. `docker ps` donne les deux :
+C'est l'erreur la plus fréquente, parce que toute la documentation de ces
+applications parle de 5055. `docker ps` donne les deux :
 
 ```
 seerr   seerr/seerr:latest   0.0.0.0:5011->5055/tcp
@@ -592,17 +584,23 @@ seerr   seerr/seerr:latest   0.0.0.0:5011->5055/tcp
                               hôte ───┘        └─── interne au conteneur
 ```
 
-Ici il faut **5011**. Vérifier avant de chercher ailleurs :
+Ici il faut **5011**. Vérifier le chemin réseau avant de suspecter autre chose :
 
 ```bash
 docker compose exec caddy wget -qO- --timeout=5 http://host.docker.internal:5011/ | head -c 200
 ```
 
-Du HTML en retour = le chemin réseau est bon.
+Du HTML en retour = Caddy atteint bien l'application.
 
-Le compromis : en choisissant l'apex, on renonce aux sous-domaines, et
-inversement. Sur un vrai domaine (Cloudflare, OVH, Gandi), les deux cohabitent
-sans problème.
+> Une réponse **307** sur la racine n'est pas une erreur : ces applications
+> redirigent vers `/login` tant qu'on n'est pas authentifié.
+
+**Variante — servir l'application sur l'apex.** C'est possible sur DuckDNS,
+malgré le §5.1 : la limite du TXT unique ne se déclenche que si l'apex *et* le
+wildcard sont demandés ensemble. Un apex seul, c'est un certificat, donc un TXT.
+Il faut alors `SITE_ADDRESSES=sondomaine.duckdns.org` (sans astérisque) et
+changer le matcher en `@seerr host {$DOMAIN}`. On renonce en échange à tous les
+sous-domaines, donc à Plex — c'est l'un ou l'autre.
 
 ### 7.5 Ce qu'il ne faut PAS exposer
 
