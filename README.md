@@ -29,6 +29,7 @@ providers/<nom>.tls.caddyfile     provider DNS + résolveurs  (bloc tls du site)
 providers/<nom>.ddns.caddyfile    bloc dynamic_dns           (global options)
 docker-compose.yml                la stack de production
 docker-compose.test.yml           surcouche de test (loopback + ACME staging)
+scripts/preflight.sh              contrôle .env avant démarrage
 scripts/verify.sh                 vérifie la chaîne de bout en bout
 .env                              toute la configuration
 ```
@@ -83,7 +84,21 @@ Les variables :
 | `ACME_EMAIL` | notifications d'expiration Let's Encrypt |
 | `<PROVIDER>_API_TOKEN` | le secret du provider choisi |
 
-### 2.3 Valider sans rien exposer
+### 2.3 Contrôler la configuration avant de démarrer
+
+```bash
+./scripts/preflight.sh
+```
+
+Vérifie la présence de `.env`, les variables obligatoires, l'existence des
+fragments du provider et surtout que **son secret est renseigné**. Un token vide
+produit sinon `missing API token` et une boucle de redémarrage dont le message
+n'est pas évident à relier à sa cause.
+
+`.env` n'étant pas versionné, il est **absent après un `git clone`** : c'est
+l'oubli le plus fréquent lors d'un déploiement sur une nouvelle machine.
+
+### 2.4 Valider sans rien exposer
 
 Le challenge DNS-01 n'ayant besoin d'aucun port entrant, on teste toute la
 chaîne avant de toucher au routeur :
@@ -110,7 +125,7 @@ d'un sous-domaine non déclaré.
 Le certificat de staging est rejeté par les navigateurs — c'est **attendu**, le
 script utilise `curl -k`. Ce qu'on valide ici, c'est le token et le wildcard.
 
-### 2.4 Passer en production
+### 2.5 Passer en production
 
 ```bash
 docker compose down
@@ -135,7 +150,7 @@ en HTTP/2).
 Le port 80 n'est ni requis ni exposé : le challenge est en DNS-01, et une
 redirection HTTP→HTTPS pointerait vers le 443 standard.
 
-### 2.5 Fixer l'IP locale — ne pas sauter cette étape
+### 2.6 Fixer l'IP locale — ne pas sauter cette étape
 
 La redirection du routeur pointe vers une **adresse fixe**. Si le serveur est en
 DHCP, son bail expire (souvent 24 h) et il peut récupérer une autre adresse au
@@ -150,7 +165,7 @@ serveur à son IP.
 > réservation avec. La désactiver pour ce réseau dans Réglages → Wi-Fi →
 > Détails, ou passer en Ethernet.
 
-### 2.6 Vérifier depuis l'extérieur
+### 2.7 Vérifier depuis l'extérieur
 
 Le test local ne prouve rien sur le routeur. Depuis un téléphone en 4G, Wi-Fi
 coupé :
@@ -430,7 +445,8 @@ docker compose logs -f caddy   # doit réémettre immédiatement
 
 | Symptôme | Piste |
 |---|---|
-| `Restarting (1)` en boucle | token vide ou erreur de syntaxe — voir `docker compose logs caddy` |
+| `Restarting (1)` en boucle | lancer `./scripts/preflight.sh` — token vide dans 9 cas sur 10 |
+| `missing API token` | `.env` absent (non versionné) ou secret non renseigné |
 | `will retry` sans fin | propagation DNS : voir §5.3 |
 | Marche en local, pas de l'extérieur | redirection du routeur, ou port externe ≠ 443 |
 | `000` depuis le LAN | la surcouche de test est active (écoute sur `127.0.0.1`) |
@@ -554,8 +570,8 @@ de ne pas écrire la route.
 
 1. Docker installé sur la machine (§2.1)
 2. Un domaine avec accès API — DuckDNS suffit et est gratuit (§2.2)
-3. Valider en staging sans ouvrir de port (§2.3)
-4. Redirection `443 -> <ip-locale>:HTTPS_PORT` sur le routeur (§2.4)
+3. Valider en staging sans ouvrir de port (§2.4)
+4. Redirection `443 -> <ip-locale>:HTTPS_PORT` sur le routeur (§2.6)
 5. **Réservation DHCP** pour la machine Plex (§2.5) — sinon l'accès tombera
 6. Routes Plex et demandes (§7.1), puis réglages internes (§7.2, §7.3)
 
