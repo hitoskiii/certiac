@@ -34,9 +34,7 @@ chk $? "le certificat couvre le wildcard *.$DOMAIN"
 echo "== 4. Proxy =="
 # -k : en staging le certificat n'est pas de confiance, c'est normal.
 code=$(curl -sk -o /dev/null -w '%{http_code}' --resolve "home.$DOMAIN:$PORT:127.0.0.1" "https://home.$DOMAIN:$PORT/")
-[ "$code" = 200 ]; chk $? "home.$DOMAIN répond ($code)"
-code=$(curl -sk -o /dev/null -w '%{http_code}' --resolve "whoami.$DOMAIN:$PORT:127.0.0.1" "https://whoami.$DOMAIN:$PORT/")
-[ "$code" = 200 ]; chk $? "sous-domaine whoami.$DOMAIN répond ($code) <- prouve le wildcard"
+[ "$code" = 200 ]; chk $? "home.$DOMAIN répond ($code) <- prouve le wildcard"
 code=$(curl -sk -o /dev/null -w '%{http_code}' --resolve "inexistant.$DOMAIN:$PORT:127.0.0.1" "https://inexistant.$DOMAIN:$PORT/")
 [ "$code" = 000 ]; chk $? "sous-domaine non déclaré refusé (abort)"
 

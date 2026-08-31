@@ -37,13 +37,6 @@ services:
       # Décommenter ici ET dans la section networks en bas.
       # - seerr
 
-  # Service de test — supprimer une fois la chaîne validée.
-  whoami:
-    image: traefik/whoami
-    restart: unless-stopped
-    networks:
-      - proxy
-
 volumes:
   caddy_data:     # ne jamais supprimer à la légère : réémission + rate limit
   caddy_config:

@@ -172,7 +172,7 @@ Le test local ne prouve rien sur le routeur. Depuis un téléphone en 4G, Wi-Fi
 coupé :
 
 ```
-https://whoami.<ton-domaine>
+https://home.<ton-domaine>
 ```
 
 Depuis le réseau local, l'accès via l'IP publique peut échouer alors que tout

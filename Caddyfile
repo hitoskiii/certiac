@@ -61,12 +61,6 @@
 		file_server
 	}
 
-	# --- Service d'exemple, à supprimer une fois la chaîne validée ---
-	@whoami host whoami.{$DOMAIN}
-	handle @whoami {
-		reverse_proxy whoami:80
-	}
-
 	# --- Modèle pour un service Docker ---
 	# @app host app.{$DOMAIN}
 	# handle @app {
