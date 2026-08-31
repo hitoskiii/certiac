@@ -29,6 +29,13 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - proxy
+      # Pour joindre un service qui vit dans un AUTRE projet compose (seerr,
+      # par exemple), rattacher Caddy à son réseau et le viser par son nom :
+      #   SEERR_UPSTREAM=seerr:5055
+      # C'est plus fiable que de passer par host.docker.internal, qui traverse
+      # du NAT et peut produire des "connection reset by peer" sporadiques.
+      # Décommenter ici ET dans la section networks en bas.
+      # - seerr
 
   # Service de test — supprimer une fois la chaîne validée.
   whoami:
@@ -44,3 +51,9 @@ volumes:
 networks:
   proxy:
     name: proxy
+
+  # Réseau d'un autre projet compose, déjà existant. Vérifier son nom exact
+  # avec : docker network ls
+  # seerr:
+  #   name: homedl_default
+  #   external: true

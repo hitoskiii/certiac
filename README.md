@@ -388,7 +388,33 @@ un état d'erreur. Tester en navigation privée pour trancher. Si c'est bien ça
 `chrome://net-internals/#hsts` → *Delete domain security policies*. Sur Safari,
 `rm ~/Library/Cookies/HSTS.plist` après avoir quitté l'application.
 
-### 5.5 Un seul service par port
+### 5.5 Après un `git pull`, recréer le conteneur
+
+Docker bind-monte un **inode**, pas un chemin. Git ne modifie pas les fichiers
+en place : il écrit un temporaire puis le renomme. Après un `git pull`, le
+`Caddyfile` sur le disque est donc un **nouveau fichier**, tandis que le
+conteneur reste attaché à l'ancien — qui n'existe plus que pour lui.
+
+Symptôme déroutant : `grep` sur l'hôte montre la nouvelle config, `grep` dans le
+conteneur montre l'ancienne. Ni `docker compose up -d` ni `caddy reload` n'y
+changent quoi que ce soit, puisque le fichier lu est fidèlement l'ancien.
+
+```bash
+git pull
+docker compose up -d --force-recreate     # sans nom de service : toute la stack
+```
+
+Vérifier ce que le conteneur voit réellement, jamais ce que voit l'hôte :
+
+```bash
+docker compose exec caddy grep -c '@seerr' /etc/caddy/Caddyfile
+```
+
+> Ne pas limiter la commande à `--force-recreate caddy` : les autres conteneurs
+> resteraient à l'arrêt, et Caddy échouerait à les résoudre
+> (`lookup <service>: server misbehaving`).
+
+### 5.6 Un seul service par port
 
 Il n'y a qu'un seul port 443 par IP publique. Deux services ne peuvent pas
 l'occuper simultanément — le DNS n'y peut rien, il ne connaît que les adresses,
@@ -454,6 +480,8 @@ docker compose logs -f caddy   # doit réémettre immédiatement
 | `will retry` sans fin | propagation DNS : voir §5.3 |
 | Marche en local, pas de l'extérieur | redirection du routeur, ou port externe ≠ 443 |
 | `000` depuis le LAN | la surcouche de test est active (écoute sur `127.0.0.1`) |
+| `connection reset by peer` vers un backend | trajet via `host.docker.internal` : préférer le réseau partagé (§7.4) |
+| `lookup <service>: server misbehaving` | le conteneur visé n'est pas démarré — `docker compose up -d` sans nom de service |
 | « non sécurisé » sur un sous-domaine | cache navigateur, §5.4 |
 | « non sécurisé » sur l'apex | normal si le wildcard est seul, §5.2 |
 
@@ -591,6 +619,28 @@ docker compose exec caddy wget -qO- --timeout=5 http://host.docker.internal:5011
 ```
 
 Du HTML en retour = Caddy atteint bien l'application.
+
+**Mieux que `host.docker.internal` : le réseau partagé.** Passer par le port
+publié sur l'hôte fonctionne, mais le trajet traverse `docker-proxy` et du NAT,
+ce qui provoque des `connection reset by peer` sporadiques — l'application n'y
+est pour rien, elle ne redémarre même pas.
+
+Si l'application vit dans un autre projet compose, rattacher Caddy à son réseau
+et la viser par son nom de conteneur. Trouver le réseau :
+
+```bash
+docker inspect seerr --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}'
+```
+
+Puis, dans `docker-compose.yml`, décommenter les deux blocs prévus (service et
+`networks`), en remplaçant `homedl_default` par le nom obtenu. Enfin :
+
+```
+SEERR_UPSTREAM=seerr:5055     # nom du conteneur + port INTERNE, plus celui de l'hôte
+```
+
+Le port change aussi : en direct on vise le port **interne** au conteneur
+(5055), plus celui publié sur l'hôte (5011).
 
 > Une réponse **307** sur la racine n'est pas une erreur : ces applications
 > redirigent vers `/login` tant qu'on n'est pas authentifié.
